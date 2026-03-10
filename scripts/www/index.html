@@ -1,11 +1,139 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>法制支队·智绘导图 移动版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-1">
+    <!-- 遮罩层 -->
+    <div class="panel-overlay" id="panelOverlay" onclick="closeAllPanels()"></div>
+
+    <!-- 可收缩控制面板 -->
+    <div class="controls-wrapper" id="controlsWrapper">
+        <div class="controls">
+            <div class="controls-header">
+                <h1 class="title-text" style="font-size:22px; font-weight:700; color:#2d3748;">智绘导图</h1>
+                <button class="collapse-btn" onclick="toggleControls()">◀</button>
+            </div>
+            <div class="controls-content">
+                <!-- 主题选择 -->
+                <div style="margin-bottom:15px;">
+                    <p style="font-weight:600; margin-bottom:8px;">🎨 主题风格</p>
+                    <div class="theme-selector">
+                        <div class="theme-option active" data-theme="1" onclick="switchTheme(1)"><div class="preview"></div>圆润</div>
+                        <div class="theme-option" data-theme="2" onclick="switchTheme(2)"><div class="preview"></div>商务</div>
+                        <div class="theme-option" data-theme="3" onclick="switchTheme(3)"><div class="preview"></div>深色</div>
+                    </div>
+                </div>
+
+                <!-- 智能解析入口 -->
+                <div style="margin-bottom:12px; padding:12px; background:#f3f0ff; border-radius:40px;">
+                    <p style="font-weight:600; margin-bottom:6px;">📄 智能文本解析</p>
+                    <button class="btn" style="width:100%;" onclick="openTextParser()">打开解析面板</button>
+                </div>
+
+                <!-- 文件导入 -->
+                <label class="file-label">
+                    <input type="file" id="fileInput" accept=".json" onchange="handleFileImport(event)" style="display:none;">
+                    导入 JSON 文件
+                </label>
+
+                <!-- 操作按钮组 -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0;">
+                    <button class="btn success" onclick="saveToHistory()">保存记录</button>
+                    <button class="btn secondary" onclick="toggleHistory()">历史记录</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0;">
+                    <button class="btn" onclick="exportImage()">导出图片</button>
+                    <button class="btn" onclick="exportJSON()">导出 JSON</button>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:8px 0;">
+                    <button class="btn secondary" onclick="addNode()">子节点</button>
+                    <button class="btn secondary" onclick="addSiblingNode()">兄弟节点</button>
+                    <button class="btn danger" onclick="deleteNode()" id="deleteBtn" disabled>删除</button>
+                </div>
+
+                <div class="stats" id="stats">节点: 0 | 层级: 0</div>
+                <div style="font-size:14px; color:#718096; margin-top:12px; padding:12px; background:#f7fafc; border-radius:24px;">
+                    <p>✔ 手动换行 (Enter) | 双击节点编辑 | 长按画布拖拽</p>
+                </div>
+                <div id="unsavedWarning" style="display:none; margin-top:12px; padding:10px; background:#fff3cd; color:#856404; border-radius:30px; font-size:14px;">⚠️ 有未保存更改</div>
+            </div>
+            <div class="expand-hint">点击箭头展开面板</div>
+        </div>
+    </div>
+
+    <!-- 智能文本解析面板 -->
+    <div class="text-parse-panel" id="textParsePanel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="font-weight:700; font-size:20px;">📝 智能解析</h3>
+            <button onclick="closeAllPanels()" style="border:none; background:transparent; font-size:24px; padding:10px;">✕</button>
+        </div>
+        <div style="background:#e6f7ff; padding:14px; border-radius:30px; font-size:14px; margin-bottom:16px;">
+            <strong>支持格式：</strong> 一、二、 / 1. 2. / - 项目符号 / 缩进层级。<br>粘贴时自动保留空格/Tab。
+        </div>
+        <div style="display:flex; gap:10px; margin-bottom:12px;">
+            <input type="file" id="txtFileInput" accept=".txt,.text" style="display:none;" onchange="importTxtFile(event)">
+            <button class="import-text-btn" style="flex:1;" onclick="document.getElementById('txtFileInput').click()">导入 .txt</button>
+            <button class="import-text-btn" style="flex:1; background:#48bb78;" onclick="loadParseExample()">示例</button>
+        </div>
+        <textarea id="parseTextarea" class="parse-textarea" placeholder="在此粘贴层级文本（缩进原样保留）&#10;&#10;示例：&#10;一、项目规划&#10;  1. 需求分析&#10;    - 用户调研"></textarea>
+        <div style="display:flex; gap:10px; margin-top:16px;">
+            <button class="btn" style="flex:2;" onclick="parseAndGenerate()">一键生成</button>
+            <button class="btn warning" style="flex:1;" onclick="clearParseText()">清空</button>
+        </div>
+    </div>
+
+    <!-- 编辑节点面板 -->
+    <div class="edit-panel" id="editPanel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="font-weight:700; font-size:20px;">编辑节点</h3>
+            <button onclick="closeAllPanels()" style="border:none; background:transparent; font-size:24px;">✕</button>
+        </div>
+        <div style="font-size:14px; color:#666; margin-bottom:12px;">Shift+Enter 保存 | 点击空白取消</div>
+        <textarea id="nodeText" placeholder="节点内容..." style="min-height:100px;"></textarea>
+        <div style="display:flex; gap:12px; margin-top:20px;">
+            <button class="btn" style="flex:1;" onclick="saveNode()">保存</button>
+            <button class="btn secondary" style="flex:1;" onclick="closeAllPanels()">取消</button>
+        </div>
+    </div>
+
+    <!-- 历史记录面板 -->
+    <div class="history-panel" id="historyPanel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="font-weight:700; font-size:20px;">历史记录</h3>
+            <button onclick="closeAllPanels()" style="border:none; background:transparent; font-size:24px;">✕</button>
+        </div>
+        <div style="font-size:14px; color:#718096; margin-bottom:15px;">本地存储 <span id="historyCount">0</span> 个版本</div>
+        <div class="history-list" id="historyList" style="max-height:50vh; overflow-y:auto;"></div>
+        <button class="btn secondary" style="width:100%; margin-top:16px;" onclick="clearAllHistory()">清空所有记录</button>
+    </div>
+
+    <!-- 画布容器 -->
+    <div id="canvas-container">
+        <div id="mindmap-canvas">
+            <div class="empty-state" id="emptyState">
+                <h2 style="font-size:2em;">法制支队智绘导图</h2>
+                <p style="margin:20px;">精英版6.0 · 移动优化</p>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button class="btn" onclick="openTextParser()">文本解析</button>
+                    <button class="btn secondary" onclick="loadExampleData()">加载示例</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 缩放按钮 -->
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+        <button class="zoom-btn" onclick="resetZoom()">⟲</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="script.js"></script>
+</body>
 </html>
